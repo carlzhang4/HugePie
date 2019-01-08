@@ -72,6 +72,7 @@ void init_pc()
     //初始化用于管理pid的avl树
     pid_tree =  Init_pid();
 
+    
     task_struct *idle = kmalloc(sizeof(task_struct));
     //分配最小的pid，即0
     idle->pid = IDLE_PID;    
@@ -108,7 +109,6 @@ void init_pc()
 //进程调度函数，实行多级反馈队列算法（修改版），每个队列内使用RR算法。
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context)
 {
-
     // kernel_printf("   %d\n", current_task->pid);
     task_node *current_node = list_find_by_pid(current_task->level, current_task->pid);
     task_node *temp = NULL;
@@ -155,7 +155,6 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context)
                 current_task->level++;
                 current_task->time_cnt = TIME_UNIT*(current_task->level+1);
             }
-                
         }
         //保存当前进程上下文至其task_struct中
         copy_context(pt_context, &(current_task->context));

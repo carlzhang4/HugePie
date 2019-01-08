@@ -59,10 +59,9 @@ void ps() {
     ps_buffer[0] = 0;
     kernel_clear_screen(31);
     kernel_puts("PowerShell\n", 0xfff, 0);
-    kernel_puts("PS>", 0xfff, 0);
+    kernel_puts("HugePie>", 0xfff, 0);
     while (1) {
         c = kernel_getchar();
-        disable_interrupts();
         if (c == '\n') {
             ps_buffer[ps_buffer_index] = 0;
             if (kernel_strcmp(ps_buffer, "exit") == 0) {
@@ -86,7 +85,6 @@ void ps() {
                 kernel_putchar(c, 0xfff, 0);
             }
         }
-    enable_interrupts();
     }
 }
 
@@ -197,7 +195,35 @@ void parse_cmd() {
     } else if (kernel_strcmp(ps_buffer, "exec") == 0) {
         result = exec(param);
         kernel_printf("exec return with %d\n", result);
-    } else {
+    } else if (kernel_strcmp(ps_buffer, "mp") == 0) {//malloc pages
+        int size;
+        size = param[0] - '0';
+        kernel_printf("apply malloc %d pages\n", size);
+        result = (int)kmalloc(size*4096);
+        kernel_printf("malloc return with %x\n", result);
+        buddy_info();
+    } else if (kernel_strcmp(ps_buffer, "fp") == 0) {//free pages
+        int addr = 0;
+        void * obj;
+        int num[8];
+        int i=0;
+        while(i<8){
+            if(param[i]>'a'){
+                addr = addr * 16 + (param[i] - 'a' + 10);
+            }
+            else{
+                addr = addr * 16 + (param[i] - '0');
+            }
+            i++;
+        }
+        
+        kernel_printf("free page addr:%x pages\n", addr);
+        obj = (void*)addr;
+        kfree(obj);
+        buddy_info();
+    }
+
+    else {
         kernel_puts(ps_buffer, 0xfff, 0);
         kernel_puts(": command not found\n", 0xfff, 0);
     }
