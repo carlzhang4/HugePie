@@ -1,6 +1,6 @@
 #ifndef _ZJUNIX_PC_H
 #define _ZJUNIX_PC_H
-
+#include <zjunix/mail.h>
 //debug控制
 #ifndef PC_DEBUG
 #define PC_DEBUG
@@ -17,7 +17,6 @@
 #define PROC_LEVEL1     1
 #define PROC_LEVEL2     2
 #define PROC_EXIT_LEVEL PRI_QUEUE_NUM
-
 
 //一个时间单位
 #define TIME_UNIT       300
@@ -84,6 +83,10 @@ int pc_kill(int proc);
 task_struct* get_curr_pcb();
 int print_proc();
 int print_certain_proc(int pid);
+int pc_register_mailbox();
+int pc_destroy_mailbox();
+int pc_send_mail(mailbox_owner *head, int dst, char message[MAIL_LENGTH]);
+int pc_recieve_mail(mailbox_owner *head ,mail mails[MAILBOX_SIZE]);
 
 //链表相关函数
 void list_init();

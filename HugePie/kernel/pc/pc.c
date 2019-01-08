@@ -15,6 +15,8 @@ task_node *task_lists[PRI_QUEUE_NUM + 1], *exit_list;
 task_struct *current_task;
 //存储可用pid的AVL树根结点
 pid_node *pid_tree;
+//邮箱
+mailbox_owner *mailbox_tree;
 
 //debug用
 #ifdef PC_DEBUG
@@ -72,6 +74,8 @@ void init_pc()
     //初始化用于管理pid的avl树
     pid_tree =  Init_pid();
 
+    //初始化消息邮箱
+    mailbox_tree = init_mailbox();
     
     task_struct *idle = kmalloc(sizeof(task_struct));
     //分配最小的pid，即0
@@ -273,7 +277,9 @@ int pc_clear_exit()
         }
         else
         {
-            //回收pid
+            //删除可能存在的mailbox
+            Destroy_mailbox(&mailbox_tree, exit_list->next->task->pid);
+            //删除pid
             Del_pid(&pid_tree, exit_list->next->task->pid);
             task = exit_list->next->task;
             //从exit_list中删除节点,要先删除节点再释放task空间
@@ -413,7 +419,7 @@ int print_proc()
     int level;
     task_node *temp;
 
-    disable_interrupts();
+    // disable_interrupts();
     if(current_task == NULL)
     {
         print_error("Current process is NULL!");
@@ -448,7 +454,7 @@ int print_proc()
         kernel_printf("\n");
     }
 
-    enable_interrupts();
+    // enable_interrupts();
     return 0;
 }
 
@@ -663,4 +669,50 @@ int add_task_to_list(int level, task_struct *task)
     return 0;
 }
 
+//给当前进程注册一个mailbox
+int pc_register_mailbox()
+{
+    return Register_mailbox(&mailbox_tree, current_task->pid);
+}
 
+//删除当前进程可能存在的mailbox
+int pc_destroy_mailbox()
+{
+    return Destroy_mailbox(&mailbox_tree, current_task->pid);
+}
+
+//向一个指定pid的进程(其必须已注册邮箱)发送消息,成功则返回0
+int pc_send_mail(mailbox_owner *head,int dst, char message[MAIL_LENGTH])
+{   
+    mailbox_owner *target =  FindMailbox(mailbox_tree, dst);
+    if(target == NULL || target->key.p == NULL)
+        return -1;
+
+    int mail_index;
+    for(mail_index = 0; mail_index < MAILBOX_SIZE; mail_index++)
+    {
+        if(((mailbox *)target->key.value)->mails[mail_index].lock!=1 && ((mailbox *)target->key.value)->mails[mail_index].valid==0)
+        {
+            ((mailbox *)target->key.value)->mails[mail_index].lock = 1;
+            ((mailbox *)target->key.value)->mails[mail_index].valid = 1;
+            ((mailbox *)target->key.value)->mails[mail_index].dst = dst;
+            ((mailbox *)target->key.value)->mails[mail_index].src = current_task->pid;
+            kernel_strcpy(((mailbox *)target->key.value)->mails[mail_index].message, message);
+            break;
+        }
+    }
+
+    if(mail_index == MAILBOX_SIZE)
+        return -1;
+    
+    return 0;
+}
+
+int pc_recieve_mail(mailbox_owner *head ,mail mails[MAILBOX_SIZE])
+{
+    mailbox_owner *target =  FindMailbox(mailbox_tree, current_task->pid);
+    if(target == NULL || target->key.p == NULL)
+        return -1;
+
+    
+}
