@@ -6,7 +6,7 @@
 
 /* 4k data buffer number in each file struct */
 #define LOCAL_DATA_BUF_NUM 4
-
+#define DIR_BUF_NUM 4
 #define SECTOR_SIZE 512
 #define CLUSTER_SIZE 4096
 
@@ -110,7 +110,7 @@ struct fs_info {
 
 unsigned long fs_find(FILE *file);
 
-unsigned long init_fs();
+unsigned long init_fat();
 
 unsigned long fs_open(FILE *file, unsigned char *filename);
 
@@ -130,7 +130,9 @@ unsigned long fs_mkdir(unsigned char *filename);
 
 unsigned long fs_rm(unsigned char *filename);
 
-unsigned long fs_mv(unsigned char *src, unsigned char *dest);
+//unsigned long fs_mv(unsigned char *src, unsigned char *dest);
+
+unsigned long mv(unsigned char *parm);
 
 unsigned long fs_open_dir(FS_FAT_DIR *dir, unsigned char *filename);
 

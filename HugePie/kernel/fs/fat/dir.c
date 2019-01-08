@@ -6,8 +6,8 @@
 /* used to find or create a directory entry */
 #define DIR_DATA_BUF_NUM 4
 FILE dir_find;
-extern BUF_512 dir_data_buf[DIR_DATA_BUF_NUM];
-extern u32 dir_data_clock_head;
+extern BUF_512 dir_buf[DIR_DATA_BUF_NUM];
+extern u32 dir_clock_head;
 extern struct fs_info fat_info;
 
 /* open directory */
@@ -23,7 +23,7 @@ u32 fs_open_dir(FS_FAT_DIR *dir, u8 *filename) {
     dir->sec = 1;
 
     /* Open root directory */
-    index = fs_read_512(dir_data_buf, dir->cur_sector, &dir_data_clock_head, DIR_DATA_BUF_NUM);
+    index = fs_read_512(dir_buf, dir->cur_sector, &dir_clock_head, DIR_DATA_BUF_NUM);
     if (index == 0xffffffff)
         goto fs_open_dir_err;
 
@@ -48,7 +48,7 @@ u32 fs_open_dir(FS_FAT_DIR *dir, u8 *filename) {
         dir->cur_sector = fs_dataclus2sec(get_start_cluster(&dir_find));
 
         /* open first sector */
-        index = fs_read_512(dir_data_buf, dir->cur_sector, &dir_data_clock_head, DIR_DATA_BUF_NUM);
+        index = fs_read_512(dir_buf, dir->cur_sector, &dir_clock_head, DIR_DATA_BUF_NUM);
         if (index == 0xffffffff)
             goto fs_open_dir_err;
     }
@@ -67,7 +67,7 @@ u32 fs_read_dir(FS_FAT_DIR *dir, u8 *buf) {
     u32 k;
     u32 next_clus;
 
-    index = fs_read_512(dir_data_buf, dir->cur_sector, &dir_data_clock_head, DIR_DATA_BUF_NUM);
+    index = fs_read_512(dir_buf, dir->cur_sector, &dir_clock_head, DIR_DATA_BUF_NUM);
     if (index == 0xffffffff)
         goto fs_read_dir_err;
 
@@ -75,15 +75,15 @@ u32 fs_read_dir(FS_FAT_DIR *dir, u8 *buf) {
         for (sec = dir->sec; sec <= fat_info.BPB.attr.sectors_per_cluster; sec++) {
             /* Find directory entry in current cluster */
             for (i = dir->loc; i < 512; i += 32) {
-                if (*(dir_data_buf[index].buf + i) == 0)
+                if (*(dir_buf[index].buf + i) == 0)
                     goto after_fs_read_dir_nomore;
 
                 /* Ignore long path and deleted file */
-                if ((*(dir_data_buf[index].buf + i) != 0xE5) && ((*(dir_data_buf[index].buf + i + 11) & 0x08) == 0)) {
+                if ((*(dir_buf[index].buf + i) != 0xE5) && ((*(dir_buf[index].buf + i + 11) & 0x08) == 0)) {
                     dir->loc = i + 32;
 
                     for (k = 0; k < 32; k++)
-                        buf[k] = *(dir_data_buf[index].buf + i + k);
+                        buf[k] = *(dir_buf[index].buf + i + k);
 
                     goto after_fs_read_dir;
                 }
@@ -92,14 +92,14 @@ u32 fs_read_dir(FS_FAT_DIR *dir, u8 *buf) {
             if (sec < fat_info.BPB.attr.sectors_per_cluster) {
                 dir->sec = sec + 1;
                 dir->loc = 0;
-                dir->cur_sector = dir_data_buf[index].cur + sec;
+                dir->cur_sector = dir_buf[index].cur + sec;
 
-                index = fs_read_512(dir_data_buf, dir->cur_sector, &dir_data_clock_head, DIR_DATA_BUF_NUM);
+                index = fs_read_512(dir_buf, dir->cur_sector, &dir_clock_head, DIR_DATA_BUF_NUM);
                 if (index == 0xffffffff)
                     goto fs_read_dir_err;
             } else {
                 /* Read next cluster of current directory */
-                if (get_fat_entry_value(dir_data_buf[index].cur - fat_info.BPB.attr.sectors_per_cluster + 1, &next_clus) == 1)
+                if (get_fat_entry_value(dir_buf[index].cur - fat_info.BPB.attr.sectors_per_cluster + 1, &next_clus) == 1)
                     goto fs_read_dir_err;
 
                 if (next_clus <= fat_info.total_data_clusters + 1) {
@@ -107,7 +107,7 @@ u32 fs_read_dir(FS_FAT_DIR *dir, u8 *buf) {
                     dir->loc = 0;
                     dir->cur_sector = fs_dataclus2sec(next_clus);
 
-                    index = fs_read_512(dir_data_buf, dir->cur_sector, &dir_data_clock_head, DIR_DATA_BUF_NUM);
+                    index = fs_read_512(dir_buf, dir->cur_sector, &dir_clock_head, DIR_DATA_BUF_NUM);
                     if (index == 0xffffffff)
                         goto fs_read_dir_err;
                 } else

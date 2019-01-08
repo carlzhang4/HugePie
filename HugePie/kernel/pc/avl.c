@@ -195,6 +195,8 @@ Node* avltree_delete(AVLTree tree, Type key)
 
 Node* avltree_search(AVLTree x, Type key)
 {
+    if(x == NULL)
+        return NULL;
     if (compare(x->key, key)==0)
         return x;
   

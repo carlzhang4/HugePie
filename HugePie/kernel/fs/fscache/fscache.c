@@ -1,7 +1,23 @@
 #include "fscache.h"
 #include <zjunix/fs/fat.h>
+#include <driver/vga.h>
+#include <zjunix/log.h>
 
 extern struct fs_info fat_info;
+u8 MBR_buf[512];
+
+u32 init_MBR_info(){
+    /* Init bufs */
+    kernel_memset(MBR_buf, 0, sizeof(MBR_buf));
+    kernel_memset(&fat_info, 0, sizeof(struct fs_info));
+
+    /* Get MBR sector */
+    if (read_block(MBR_buf, 0, 1) == 1) {
+        return 1;
+    }
+    log(LOG_OK, "Get MBR sector info");
+    return 0;
+}
 
 u32 fs_victim_4k(BUF_4K *buf, u32 *clock_head, u32 size) {
     u32 i;

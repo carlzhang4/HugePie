@@ -7,6 +7,7 @@
 #include <zjunix/bootmm.h>
 #include <zjunix/buddy.h>
 #include <zjunix/fs/fat.h>
+#include <zjunix/fs/ext2.h> 
 #include <zjunix/log.h>
 #include <zjunix/pc.h>
 #include <zjunix/slab.h>
@@ -59,7 +60,9 @@ void init_kernel() {
     log(LOG_END, "Memory Modules.");
     // File system
     log(LOG_START, "File System.");
-    init_fs();
+    init_MBR_info();
+    init_fat();
+    init_ext();
     log(LOG_END, "File System.");
     // System call
     log(LOG_START, "System Calls.");

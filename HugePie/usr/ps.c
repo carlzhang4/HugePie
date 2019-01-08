@@ -5,10 +5,13 @@
 #include <zjunix/bootmm.h>
 #include <zjunix/buddy.h>
 #include <zjunix/fs/fat.h>
+#include <zjunix/fs/ext2.h>
 #include <zjunix/slab.h>
 #include <zjunix/time.h>
 #include <zjunix/utils.h>
 #include <zjunix/pc.h>
+#include <zjunix/mail.h>
+#include <zjunix/log.h>
 #include "../usr/ls.h"
 #include "exec.h"
 #include "myvi.h"
@@ -49,6 +52,58 @@ int proc_demo_create(int level, int fixed) {
     asm volatile("la %0, _gp\n\t" : "=r"(init_gp));
     pc_create(test_proc, "test", level, fixed);
     return 0;
+}
+
+void test_read()
+{
+    if(pc_register_mailbox()!= 0)
+        while(1);
+    char message[MAIL_LENGTH];
+    int src;
+    while(1)
+    {
+        if(pc_read_mail(&src, message) == 0)
+        {
+            kernel_printf("\n Process %d: Receive from process %d : %s\n", get_curr_pcb()->pid, src, message);
+        }
+    }
+}
+
+void test_send() 
+{
+    // log(LOG_START, "Begin create read\n");
+    int pid = pc_create(test_read, "Read test", 0, 0);
+    // log(LOG_END, "END create read\n");
+    if(pid < 0)
+        while(1);
+    char message[100];
+    kernel_memcpy(message, "Hello, I'm process ", 20);
+    // message[0] = 'H'; message[1] = 
+    int i = 19;
+    int current = get_curr_pcb()->pid;
+    int temp = 100;
+    // log(LOG_START, "Begin send\n");
+    while(temp != 0)
+    {
+        message[i++] = current/temp + '0';
+        current = current%temp;
+        temp = temp/10;
+    }
+    message[i] = 0;
+
+    while(pc_send_mail(pid, message) != 0);
+    // log(LOG_END, "END send\n");
+    while(1);
+}
+
+int test_communication()
+{
+    int pid = pc_create(test_send, "Send test", 0, 0);
+
+    if(pid < 0)
+        return -1;
+    else
+        return 0;
 }
 
 void ps() {
@@ -183,16 +238,49 @@ void parse_cmd() {
             kernel_printf("Invalid parameters\n");
             return;
         }
-    } else if (kernel_strcmp(ps_buffer, "cat") == 0) {
+    } else if(kernel_strcmp(ps_buffer, "testcomm") == 0)
+        {
+            kernel_printf("testcomm return with %d\n", test_communication());
+            return;
+        }
+      else if(kernel_strcmp(ps_buffer, "sendm") == 0)
+        {
+            if(param[0]>='0' && param[0]<='9' && param[1] == ' ')
+            {
+                int pid = param[0] - '0';
+                param += 2;
+                char message[MAIL_LENGTH];
+                int length = 64-(param-ps_buffer);
+                kernel_memcpy(message, param, length);
+
+                kernel_printf("sendm return with %d\n", pc_send_mail(pid, message));
+            }
+            else
+                kernel_printf("Invalid parameters\n");
+            return;
+        }
+    else if (kernel_strcmp(ps_buffer, "cat") == 0) {
         result = fs_cat(param);
         kernel_printf("cat return with %d\n", result);
-    } else if (kernel_strcmp(ps_buffer, "ls") == 0) {
+    } else if (kernel_strcmp(ps_buffer, "ecat") == 0) {
+        result = ext_cat(param);
+        kernel_printf("ecat return with %d\n", result);
+    }else if (kernel_strcmp(ps_buffer, "ls") == 0) {
         result = ls(param);
         kernel_printf("ls return with %d\n", result);
     } else if (kernel_strcmp(ps_buffer, "vi") == 0) {
         result = myvi(param);
         kernel_printf("vi return with %d\n", result);
-    } else if (kernel_strcmp(ps_buffer, "exec") == 0) {
+    } else if (kernel_strcmp(ps_buffer, "mkdir") == 0) {
+        result = fs_mkdir(param);
+        kernel_printf("mkdir return with %d\n", result);
+    }  else if (kernel_strcmp(ps_buffer, "rm") == 0) {
+        result = fs_rm(param);
+        kernel_printf("rm return with %d\n", result);
+    }  else if (kernel_strcmp(ps_buffer, "mv") == 0) {
+        result = mv(param);
+        kernel_printf("mv return with %d\n", result);
+    }else if (kernel_strcmp(ps_buffer, "exec") == 0) {
         result = exec(param);
         kernel_printf("exec return with %d\n", result);
     } else if (kernel_strcmp(ps_buffer, "mp") == 0) {//malloc pages
@@ -222,7 +310,6 @@ void parse_cmd() {
         kfree(obj);
         buddy_info();
     }
-
     else {
         kernel_puts(ps_buffer, 0xfff, 0);
         kernel_puts(": command not found\n", 0xfff, 0);

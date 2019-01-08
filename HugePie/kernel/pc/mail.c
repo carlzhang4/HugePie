@@ -6,6 +6,7 @@
 #include <arch.h>
 #include <intr.h>
 #include <zjunix/utils.h>
+#include <zjunix/log.h>
 
 mailbox_owner *init_mailbox()
 {
@@ -52,8 +53,8 @@ int Destroy_mailbox(mailbox_owner **head, int pid)
         return -1;
 
     mail *first = ((mailbox*)target->key.p)->head;
-    mail *temp;
-    while(temp->next != NULL)
+    mail *temp = NULL;
+    while(first->next != NULL)
     {
         temp = first->next;
         first->next = temp->next;
@@ -89,7 +90,55 @@ int CheckMailbox(mailbox_owner *head, int pid)
     return FindMailbox(head, pid) != NULL;
 }
 
-int SendMail(mailbox_owner *head, int src, int dst, char[MAIL_LENGTH])
+int SendMail(mailbox_owner *head, int src, int dst, char message[MAIL_LENGTH])
 {
+    // log(LOG_START, "BEGIN_FIND\n");
+    mailbox_owner *target = FindMailbox(head, dst);
+    // log(LOG_END, "END_FIND\n");
+    if(target == NULL || ((mailbox*)target->key.p)->head == NULL)
+        return -1;
+
+    if(((mailbox*)target->key.p)->length >= MAILBOX_SIZE)
+        return -1;
+    // log(LOG_START, "BEGIN_SENDMAIL\n");
+    ((mailbox*)target->key.p)->length++;
+    mail *tail = ((mailbox*)target->key.p)->tail;
+    tail->next = (mail*)kmalloc(sizeof(mail));
+    if(tail->previous != NULL)
+        tail->previous->next = tail->next;
+    tail->next->previous = tail;
+    tail = tail->next;
+    tail->next = NULL;
+    tail->src = src;
+    kernel_memcpy(tail->message, message, MAIL_LENGTH);
+    // log(LOG_END, "END_SENDMAIL\n");
+    return 0;
+}
+
+int ReadMail(mailbox_owner *head, int pid, int *src, char message[MAIL_LENGTH])
+{
+    // log(LOG_START, "BEGIN_FIND\n");
+    mailbox_owner *target = FindMailbox(head, pid);
+    // log(LOG_END, "END_FIND\n");
+    if(target == NULL || ((mailbox*)target->key.p)->head == NULL)
+        return -1;
+
+    if(((mailbox*)target->key.p)->length <= 0)
+        return -1;
+    // log(LOG_START, "BEGIN_READMAIL\n");
+    mail *temp = ((mailbox*)target->key.p)->head->next;
+    if(temp == NULL)
+        return -1;
+    kernel_memcpy(message, temp->message, MAIL_LENGTH);
+    // log(LOG_STEP, "%s\n", temp->message);
+    *src = temp->src;
+    // log(LOG_STEP, "STEP1");
+    if(temp->next != NULL)
+        temp->next->previous = temp->previous;
+    // log(LOG_STEP, "STEP2");
+    temp->previous->next = temp->next;
+    kfree(temp);
+    ((mailbox*)target->key.p)->length--;
+    // log(LOG_END, "END_READMAIL\n");
     return 0;
 }

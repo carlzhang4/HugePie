@@ -13,6 +13,6 @@ extern struct fs_info fat_info;
 
 u32 fs_create_with_attr(u8 *filename, u8 attr);
 
-u32 read_fat_sector(u32 ThisFATSecNum);
+
 
 #endif  // ! _FS_FAT_H

@@ -20,4 +20,7 @@ void cluster_to_fat_entry(u32 clus, u32 *ThisFATSecNum, u32 *ThisFATEntOffset);
 u32 fs_dataclus2sec(u32 clus);
 u32 fs_sec2dataclus(u32 sec);
 
+u32 read_fat_sector(u32 ThisFATSecNum);
+u32 write_fat_sector(u32 index);
+
 #endif  // ! _FAT_UTILS_H

@@ -19,6 +19,7 @@ struct mail
     int dst;
     //消息
     char message[MAIL_LENGTH];
+    
     mail *next, *previous;
 };
 
@@ -43,6 +44,8 @@ mailbox_owner* FindMailbox(mailbox_owner *head, int pid);
 
 int CheckMailbox(mailbox_owner *head, int pid);
 
-int SendMail(mailbox_owner *head, int src, int dst, char[MAIL_LENGTH]);
+int SendMail(mailbox_owner *head, int src, int dst, char message[MAIL_LENGTH]);
+
+int ReadMail(mailbox_owner *head, int pid, int *src, char message[MAIL_LENGTH]);
 
 #endif

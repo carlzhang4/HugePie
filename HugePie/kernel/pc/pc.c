@@ -682,37 +682,12 @@ int pc_destroy_mailbox()
 }
 
 //向一个指定pid的进程(其必须已注册邮箱)发送消息,成功则返回0
-int pc_send_mail(mailbox_owner *head,int dst, char message[MAIL_LENGTH])
+int pc_send_mail(int dst, char message[MAIL_LENGTH])
 {   
-    mailbox_owner *target =  FindMailbox(mailbox_tree, dst);
-    if(target == NULL || target->key.p == NULL)
-        return -1;
-
-    int mail_index;
-    for(mail_index = 0; mail_index < MAILBOX_SIZE; mail_index++)
-    {
-        if(((mailbox *)target->key.value)->mails[mail_index].lock!=1 && ((mailbox *)target->key.value)->mails[mail_index].valid==0)
-        {
-            ((mailbox *)target->key.value)->mails[mail_index].lock = 1;
-            ((mailbox *)target->key.value)->mails[mail_index].valid = 1;
-            ((mailbox *)target->key.value)->mails[mail_index].dst = dst;
-            ((mailbox *)target->key.value)->mails[mail_index].src = current_task->pid;
-            kernel_strcpy(((mailbox *)target->key.value)->mails[mail_index].message, message);
-            break;
-        }
-    }
-
-    if(mail_index == MAILBOX_SIZE)
-        return -1;
-    
-    return 0;
+    return SendMail(mailbox_tree, current_task->pid, dst, message);
 }
 
-int pc_recieve_mail(mailbox_owner *head ,mail mails[MAILBOX_SIZE])
+int pc_read_mail(int *src, char message[MAIL_LENGTH])
 {
-    mailbox_owner *target =  FindMailbox(mailbox_tree, current_task->pid);
-    if(target == NULL || target->key.p == NULL)
-        return -1;
-
-    
+    return ReadMail(mailbox_tree, current_task->pid, src, message);
 }

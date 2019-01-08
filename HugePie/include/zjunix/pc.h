@@ -85,8 +85,8 @@ int print_proc();
 int print_certain_proc(int pid);
 int pc_register_mailbox();
 int pc_destroy_mailbox();
-int pc_send_mail(mailbox_owner *head, int dst, char message[MAIL_LENGTH]);
-int pc_recieve_mail(mailbox_owner *head ,mail mails[MAILBOX_SIZE]);
+int pc_send_mail(int dst, char message[MAIL_LENGTH]);
+int pc_read_mail(int *src, char message[MAIL_LENGTH]);
 
 //链表相关函数
 void list_init();
