@@ -175,6 +175,8 @@ static Node* delete_node(AVLTree tree, Node *z)
         {
             Node *tmp = tree;
             tree = tree->left ? tree->left : tree->right;
+            if(tmp->key.p != NULL)
+                kfree(tmp->key.p);
             kfree(tmp);
         }
     }

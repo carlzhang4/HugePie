@@ -21,7 +21,8 @@ mailbox_owner *init_mailbox()
 //分配一个mailbox,成功则返回0，否则返回-1
 int Register_mailbox(mailbox_owner **head, int pid)
 {
-    if(head == NULL || *head == NULL || FindMailbox(*head, pid)!=NULL)
+    // log(LOG_START, "Register begin\n");
+    if(head == NULL || *head == NULL || pid < 0 || FindMailbox(*head, pid)!=NULL)
         return -1;
     
     Type element;
@@ -39,13 +40,14 @@ int Register_mailbox(mailbox_owner **head, int pid)
     }
     element.value = pid;
     *head = avltree_insert(*head, element);
+    // log(LOG_END, "Register END\n");
     return 0;
 }
 
 //删除一个mailbox,需要删除消息队列中的所有消息
 int Destroy_mailbox(mailbox_owner **head, int pid)
 {
-    if(head == NULL || *head == NULL)
+    if(head == NULL || *head == NULL || pid < 0)
         return -1;
 
     mailbox_owner *target = FindMailbox(*head, pid);
@@ -95,22 +97,22 @@ int SendMail(mailbox_owner *head, int src, int dst, char message[MAIL_LENGTH])
     // log(LOG_START, "BEGIN_FIND\n");
     mailbox_owner *target = FindMailbox(head, dst);
     // log(LOG_END, "END_FIND\n");
-    if(target == NULL || ((mailbox*)target->key.p)->head == NULL)
+    if(target == NULL || ((mailbox*)(target->key.p))->head == NULL)
         return -1;
 
-    if(((mailbox*)target->key.p)->length >= MAILBOX_SIZE)
+    if(((mailbox*)(target->key.p))->length >= MAILBOX_SIZE)
         return -1;
     // log(LOG_START, "BEGIN_SENDMAIL\n");
-    ((mailbox*)target->key.p)->length++;
-    mail *tail = ((mailbox*)target->key.p)->tail;
-    tail->next = (mail*)kmalloc(sizeof(mail));
-    if(tail->previous != NULL)
-        tail->previous->next = tail->next;
-    tail->next->previous = tail;
-    tail = tail->next;
-    tail->next = NULL;
-    tail->src = src;
-    kernel_memcpy(tail->message, message, MAIL_LENGTH);
+    ((mailbox*)(target->key.p))->tail->next = (mail*)kmalloc(sizeof(mail));
+    // if(tail->previous != NULL)
+    //     tail->previous->next = tail->next;
+    ((mailbox*)(target->key.p))->tail->next->previous = ((mailbox*)(target->key.p))->tail;
+    ((mailbox*)(target->key.p))->tail = ((mailbox*)(target->key.p))->tail->next;
+    ((mailbox*)(target->key.p))->tail->next = NULL;
+    ((mailbox*)(target->key.p))->tail->src = src;
+    ((mailbox*)(target->key.p))->tail->dst = dst;
+    kernel_memcpy(((mailbox*)(target->key.p))->tail->message, message, MAIL_LENGTH);
+    ((mailbox*)(target->key.p))->length++;
     // log(LOG_END, "END_SENDMAIL\n");
     return 0;
 }
@@ -129,6 +131,8 @@ int ReadMail(mailbox_owner *head, int pid, int *src, char message[MAIL_LENGTH])
     mail *temp = ((mailbox*)target->key.p)->head->next;
     if(temp == NULL)
         return -1;
+    if(temp == ((mailbox*)target->key.p)->tail)
+        ((mailbox*)target->key.p)->tail = ((mailbox*)target->key.p)->head;
     kernel_memcpy(message, temp->message, MAIL_LENGTH);
     // log(LOG_STEP, "%s\n", temp->message);
     *src = temp->src;

@@ -37,6 +37,20 @@ int Alloc_pid(pid_node **head)
     }
 }
 
+//插入一个指定pid的节点
+int Insert_pid(pid_node **head, int pid)
+{
+    if(pid < 0 || Check_pid(*head, pid))
+        return -1;
+
+    Type element;
+    element.p = NULL;
+    element.value = pid;
+    *head = avltree_insert(*head, element);
+
+    return 0;
+}
+
 //将一个pid插入AVL树中，用于回收pid
 int Del_pid(pid_node **head, int pid)
 {

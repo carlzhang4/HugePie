@@ -17,6 +17,9 @@ pid_node* Init_pid();
 //分配一个pid，实质上插入一个最大pid+1的节点
 int Alloc_pid(pid_node **head);
 
+//将一个指定pid的节点插入树中
+int Insert_pid(pid_node **head, int pid);
+
 //将一个pid从
 int Del_pid(pid_node **head, int pid);
 

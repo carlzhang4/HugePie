@@ -117,12 +117,18 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context)
     task_node *current_node = list_find_by_pid(current_task->level, current_task->pid);
     task_node *temp = NULL;
 
-    //清理结束进程列表
-    if(pc_clear_exit() != 0)
+    task_struct *next = pc_find_next();
+    if(next == NULL)
     {
-        print_error("Error occurs when clearing the exit list!");
+        print_error("Error occurs during pc_schedule, no available processes!");
+        pc_clear_exit();
         while(1)
-            ;
+            ;        
+    }
+
+    if(current_task->state == PC_FINISH){
+        list_delete(current_node->level, current_node);
+        add_task_to_list(PROC_EXIT_LEVEL, current_task);
     }
 
     if(current_node == NULL)
@@ -133,20 +139,12 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context)
         while(1)
             ;
     }
-    task_struct *next = pc_find_next();
-    if(next == NULL)
-    {
-        print_error("Error occurs during pc_schedule, no available processes!");
-        pc_clear_exit();
-        while(1)
-            ;        
-    }
+
 
     if(next != current_task)
     {
-        current_task->state = PC_READY;
         //如果当前进程被固定住了或是处于最低优先级,则不改变其位置
-        if(current_task->fixed == 1 || current_task->level==PRI_QUEUE_NUM -1);
+        if(current_task->fixed == 1 || current_task->level==PRI_QUEUE_NUM -1 || current_task->state==PC_FINISH) ;
             //list_move_to_end(current_node);
         else
         {
@@ -160,10 +158,13 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context)
                 current_task->time_cnt = TIME_UNIT*(current_task->level+1);
             }
         }
-        //保存当前进程上下文至其task_struct中
-        copy_context(pt_context, &(current_task->context));
-
-
+        
+        if(current_task->state != PC_FINISH)
+        {
+            //保存当前进程上下文至其task_struct中
+            copy_context(pt_context, &(current_task->context));
+            current_task->state = PC_READY;
+        }
         current_task = next;
         //将下一个进程的task_struct中的上下文加载至pt_context中
         copy_context(&(current_task->context), pt_context);
@@ -179,6 +180,14 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context)
             while(1)
             ;
         }
+    }
+
+        //清理结束进程列表
+    if(pc_clear_exit() != 0)
+    {
+        print_error("Error occurs when clearing the exit list!");
+        while(1)
+            ;
     }
 
     //将cp0中到count寄存器复位为0，结束时钟中断
@@ -293,14 +302,24 @@ int pc_clear_exit()
 }
 
 //用于进程的创建，若成功则返回pid
-int pc_create(void (*func)(), char* name, int level, int fixed)
+int pc_create(void (*func)(), char* name, int level, int fixed, int mpid)
 {
     if(level < 0 || level >= PRI_QUEUE_NUM || (fixed != 0 && fixed != 1))
     {
         kernel_printf("Process creating fails!\n");
         return -1;
     }
-    int pid = Alloc_pid(&pid_tree);
+    int pid;
+
+    if(mpid >= 0 && Check_pid(pid_tree ,mpid) == 0)
+    {
+        pid = mpid;
+        
+        if(Insert_pid(&pid_tree, pid) < 0)
+            return -1;
+    }
+    else
+        pid = Alloc_pid(&pid_tree);
     unsigned int init_gp;
     
     //获得的pid小于0意味着无可用pid
@@ -346,7 +365,9 @@ void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_contex
     else
     {
         current_task->state = PC_FINISH;
+        // disable_interrupts();
         pc_schedule(status, cause, pt_context);
+        // enable_interrupts();
     }
 }
 
@@ -452,6 +473,7 @@ int print_proc()
             // log(LOG_START, "Print end");
         }
         kernel_printf("\n");
+        sleep(1000);
     }
 
     // enable_interrupts();
@@ -461,7 +483,8 @@ int print_proc()
 //根据pid打印出某一特定进程的详细信息
 int print_certain_proc(int pid)
 {
-    disable_interrupts();
+    if(Check_pid(pid_tree, pid) == 0)
+        return -1;
     if(pid < 0)
     {
         print_error("PID must be a non-negative integer!");
@@ -512,14 +535,20 @@ int print_certain_proc(int pid)
         kernel_strcpy(next, target_node->next->task->name);
 
     kernel_printf("PID: %d\n", pid);
+    // sleep(1000);
     kernel_printf("NAME: %s\n", target_node->task->name);
+    // sleep(1000);
     kernel_printf("LEVEL: %d\n", target_node->level);
+    // sleep(1000);
     kernel_printf("FIXED: %d\n", target_node->task->fixed);
+    // sleep(1000);
     kernel_printf("STATE: %s\n", state);
+    // sleep(1000);
     kernel_printf("REMAINING TIME: %d\n", target_node->task->time_cnt);
+    // sleep(1000);
     kernel_printf("Previous: %s   Next: %s\n", pre, next);
+    // sleep(1000);
 
-    enable_interrupts();
     return 0;
 }
 

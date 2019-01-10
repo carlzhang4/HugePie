@@ -33,9 +33,9 @@ void machine_info() {
 void create_startup_process() {
     unsigned int init_gp;
     asm volatile("la %0, _gp\n\t" : "=r"(init_gp));
-    pc_create(ps, "powershell", 0, 1);
+    pc_create(ps, "powershell", 0, 1, 1);
     log(LOG_OK, "Shell init");
-    pc_create(system_time_proc, "time", PRI_QUEUE_NUM-1, 1);
+    pc_create(system_time_proc, "time", PRI_QUEUE_NUM-1, 1, 2);
     log(LOG_OK, "Timer init");
 }
 #pragma GCC pop_options

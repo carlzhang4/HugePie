@@ -2,6 +2,7 @@
 
 #include <driver/vga.h>
 #include <zjunix/pc.h>
+#include <zjunix/ps.h>
 #include "intr.h"
 
 #pragma GCC push_options
@@ -11,22 +12,23 @@ exc_fn exceptions[32];
 
 void do_exceptions(unsigned int status, unsigned int cause, context* pt_context) {
     int index = cause >> 2;
+    int pid;
     index &= 0x1f;
-    if (exceptions[index]) {
+    if (0){//(exceptions[index]) {
         exceptions[index](status, cause, pt_context);
     } else {
         task_struct* pcb;
         unsigned int badVaddr;
         asm volatile("mfc0 %0, $8\n\t" : "=r"(badVaddr));
         pcb = get_curr_pcb();
+        pid = pcb->pid;
         // print_certain_proc(pcb->pid);
         // print_proc();
         kernel_printf("\nProcess %s exited due to exception cause=%x;\n", pcb->name, cause);
         kernel_printf("status=%x, EPC=%x, BadVaddr=%x\n", status, pcb->context.epc, badVaddr);
         pc_kill_syscall(status, cause, pt_context);
-        disable_interrupts();
-        while (1)
-            ;
+        if(pid == 1)
+            pc_create(ps, "powershell", 0, 1, 1);
     }
 }
 

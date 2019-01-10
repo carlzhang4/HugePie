@@ -50,16 +50,19 @@ int proc_demo_create(int level, int fixed) {
     // }
     unsigned int init_gp;
     asm volatile("la %0, _gp\n\t" : "=r"(init_gp));
-    pc_create(test_proc, "test", level, fixed);
-    return 0;
+    return pc_create(test_proc, "test", level, fixed, -1);
 }
 
 void test_read()
 {
     if(pc_register_mailbox()!= 0)
-        while(1);
+        while(1)
+        {
+            // sleep(1000);
+        }
     char message[MAIL_LENGTH];
     int src;
+    // log(LOG_START, "Begin read\n");
     while(1)
     {
         if(pc_read_mail(&src, message) == 0)
@@ -72,13 +75,15 @@ void test_read()
 void test_send() 
 {
     // log(LOG_START, "Begin create read\n");
-    int pid = pc_create(test_read, "Read test", 0, 0);
+    int pid = pc_create(test_read, "Read test", 0, 0, -1);
     // log(LOG_END, "END create read\n");
+    // print_proc();
     if(pid < 0)
+    {
         while(1);
+    }
     char message[100];
     kernel_memcpy(message, "Hello, I'm process ", 20);
-    // message[0] = 'H'; message[1] = 
     int i = 19;
     int current = get_curr_pcb()->pid;
     int temp = 100;
@@ -90,7 +95,7 @@ void test_send()
         temp = temp/10;
     }
     message[i] = 0;
-
+    // log(LOG_STEP, "Send step 1\n");
     while(pc_send_mail(pid, message) != 0);
     // log(LOG_END, "END send\n");
     while(1);
@@ -98,12 +103,7 @@ void test_send()
 
 int test_communication()
 {
-    int pid = pc_create(test_send, "Send test", 0, 0);
-
-    if(pid < 0)
-        return -1;
-    else
-        return 0;
+    return pc_create(test_send, "Send test", 0, 0, -1);
 }
 
 void ps() {
@@ -206,7 +206,7 @@ void parse_cmd() {
     } else if (kernel_strcmp(ps_buffer, "time") == 0) {
         unsigned int init_gp;
         asm volatile("la %0, _gp\n\t" : "=r"(init_gp));
-        pc_create(system_time_proc, "time", PRI_QUEUE_NUM-1, 1);
+        pc_create(system_time_proc, "time", PRI_QUEUE_NUM-1, 1, -1);
     } else if (kernel_strcmp(ps_buffer, "showproc") == 0){
         if(param[0]>='0' && param[0]<='9')
         {

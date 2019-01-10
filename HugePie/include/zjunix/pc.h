@@ -77,7 +77,7 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context);
 task_struct *pc_find_next();
 // int pc_peek();
 int pc_clear_exit();
-int pc_create(void (*func)(), char* name, int level, int fixed);
+int pc_create(void (*func)(), char* name, int level, int fixed, int mpid);
 void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context);
 int pc_kill(int proc);
 task_struct* get_curr_pcb();

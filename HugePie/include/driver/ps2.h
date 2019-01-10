@@ -7,6 +7,7 @@
 void init_ps2();
 void ps2_handler(unsigned int status, unsigned int cause, context* pt_context);
 int kernel_getkey();
+void sleep(int cycle);
 int kernel_getchar();
 
 #endif // ! _DRIVER_PS2
