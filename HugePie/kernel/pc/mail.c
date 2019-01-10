@@ -30,7 +30,7 @@ int Register_mailbox(mailbox_owner **head, int pid)
     element.p = (mailbox*)kmalloc(sizeof(mailbox));
     for(i = 0;i < MAILBOX_SIZE; i++)
     {
-        ((mailbox*)(element.p))->head = (mail*)kmalloc(sizeof(mail));
+        ((mailbox*)(element.p))->head = (mail*)kmalloc(4096);
         //为了标识头节点，将dst,src都设为-1
         ((mailbox*)(element.p))->head->dst = -1;
         ((mailbox*)(element.p))->head->src = -1;
@@ -103,7 +103,7 @@ int SendMail(mailbox_owner *head, int src, int dst, char message[MAIL_LENGTH])
     if(((mailbox*)(target->key.p))->length >= MAILBOX_SIZE)
         return -1;
     // log(LOG_START, "BEGIN_SENDMAIL\n");
-    ((mailbox*)(target->key.p))->tail->next = (mail*)kmalloc(sizeof(mail));
+    ((mailbox*)(target->key.p))->tail->next = (mail*)kmalloc(4096);
     // if(tail->previous != NULL)
     //     tail->previous->next = tail->next;
     ((mailbox*)(target->key.p))->tail->next->previous = ((mailbox*)(target->key.p))->tail;
