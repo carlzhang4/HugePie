@@ -7,6 +7,7 @@
 #define _PAGE_RESERVED (1 << 31)
 #define _PAGE_ALLOCED (1 << 30)
 #define _PAGE_SLAB (1 << 29)
+typedef unsigned int uint;
 
 /*
  * struct buddy page is one info-set for the buddy group of pages
@@ -19,7 +20,7 @@ struct page {
     unsigned int bplevel;    /* the order level of the page
                               *
                               * unsigned int sl_objs;
-                              * 		represents the number of objects in current
+                              *     represents the number of objects in current
                               * if the page is of _PAGE_SLAB, then bplevel is the sl_objs
                               */
     unsigned int slabp;      /* if the page is used by slab system,
@@ -71,5 +72,20 @@ extern void *alloc_pages(unsigned int order);
 extern void init_buddy();
 
 extern void buddy_info();
+
+extern void pushdown(uint t);
+extern void pushup(uint t);
+extern void print_tree(void);
+extern void build_tree(uint t, uint left, uint right);
+extern int alloc_pages_tree(uint t, uint length);
+extern int __alloc_pages_tree(uint t, uint length);
+
+extern void free_pages_tree(uint t, uint addr, uint length);
+
+extern void update(uint t);
+extern void update_leaf(uint t, uint value);
+extern void update_leaves(uint start, uint size, uint value);
+
+extern void init_tree_system(void);
 
 #endif

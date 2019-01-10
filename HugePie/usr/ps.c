@@ -309,6 +309,87 @@ void parse_cmd() {
         obj = (void*)addr;
         kfree(obj);
         buddy_info();
+    } else if (kernel_strcmp(ps_buffer, "m") == 0) { //malloc bytes
+        int size;
+        int num[5];
+        num[0] = param[0] - '0';
+        num[1] = param[1] - '0';
+        num[2] = param[2] - '0';
+        num[3] = param[3] - '0';
+        num[4] = param[4] - '0';
+        size = num[4] + num[3]*10 + num[2]*100 + num[1]*1000 + num[0]*10000;
+        kernel_printf("apply malloc %d bytes\n", size);
+        result = (unsigned int)kmalloc(size);
+        kernel_printf("malloc return with %x\n", result);
+    } else if (kernel_strcmp(ps_buffer, "mp") == 0) {//malloc pages
+        int size;
+        size = param[0] - '0';
+        kernel_printf("apply malloc %d pages\n", size);
+        result = (int)kmalloc(size*4096);
+        kernel_printf("malloc return with %x\n", result);
+        buddy_info();
+    } else if (kernel_strcmp(ps_buffer, "mt") == 0) {//malloc pages in segment tree system
+        int size;
+        size = param[0] - '0';
+        kernel_printf("apply malloc %d pages in segment tree system\n", size);
+        result = alloc_pages_tree(1,size);
+        kernel_printf("malloc return with %x\n", result);
+        print_tree();
+    } else if (kernel_strcmp(ps_buffer, "ft") == 0) {//malloc pages in segment tree system
+        int start;
+        int length;
+        start = param[0] - '0';
+        length = param[1] - '0';
+        kernel_printf("free %d pages in segment tree system\n", length);
+        free_pages_tree(1, start, length);
+        print_tree();
+    }else if (kernel_strcmp(ps_buffer, "inittree") == 0) {//init segment tree system
+        int size;
+        size = param[0] - '0';
+        kernel_printf("init tree system which has %d consecutive space\n", size);
+        result = (int)kmalloc(size*4096);
+        build_tree(1, 0, size-1);
+        kernel_printf("base address return with %x\n", result);
+        print_tree();
+    }else if (kernel_strcmp(ps_buffer, "fp") == 0) {//free pages
+        int addr = 0;
+        void * obj;
+        int num[8];
+        int i=0;
+        while(i<8){
+            if(param[i]>'a'){
+                addr = addr * 16 + (param[i] - 'a' + 10);
+            }
+            else{
+                addr = addr * 16 + (param[i] - '0');
+            }
+            i++;
+        }
+        
+        kernel_printf("free page addr:%x pages\n", addr);
+        obj = (void*)addr;
+        kfree(obj);
+        buddy_info();
+    }else if(kernel_strcmp(ps_buffer, "mtest") == 0) {
+        int i;
+        int total = 100;
+        //int sizeArr[200];
+        int *addrArr[200];
+        int size = 100;
+        //for (i=0; i<total; i++) sizeArr[i] = 100;
+        
+        // for (i=10; i<100; i++) sizeArr[i] = 2<<12;
+        // for (i=100; i<total; i++) sizeArr[i] = 4<<12;
+        for (i=0; i<total; i++) addrArr[i] = kmalloc(size);
+        kernel_printf("Allocate %d blocks sized %d byte\n", total, size);
+        // bootmap_info("bootmm");
+        buddy_info();
+        // kernel_getkey();
+        
+        for (i=0; i<total; i++) kfree(addrArr[i]);
+        kernel_printf("Deallocate\n");
+        // bootmap_info("bootmm");
+        buddy_info();
     }
     else {
         kernel_puts(ps_buffer, 0xfff, 0);

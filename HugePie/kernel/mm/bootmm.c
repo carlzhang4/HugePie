@@ -41,110 +41,118 @@ uint insert_mminfo(struct bootmm *mm, uint start, uint end, uint type) {
     uint i;
     for (i = 0; i < mm->cnt_infos; i++) {
         if (mm->info[i].type != type)
-            continue;  // ignore the type-mismatching items to find one likely
-                       // mergable
+            continue;  // skip the one whose type is not same
+
         if (mm->info[i].end == start - 1) {
-            // new-in mm is connecting to the forwarding one
+            // new-in mm is behind the forwarding one
             // info[i] -- new info
-            if ((i + 1) != mm->cnt_infos) { // current info is still not the last segment
-                if (mm->info[i + 1].type != type) {  // next seg is of
+            if ((i + 1) != mm->cnt_infos) { // current info[i] is not the last segment
+                if (mm->info[i + 1].type != type) {  // next info is different type
                     mm->info[i].end = end;
                     return 2;
-                } else if (mm->info[i + 1].start - 1 == end) { // info[i] -- new info -- info[i+1]
+                } else if (mm->info[i + 1].start - 1 == end) { // info[i] -- new info -- info[i+1] brige insert 
                         mm->info[i].end = mm->info[i + 1].end;
                         remove_mminfo(mm, i + 1);
                         return 7;
                     }
                     else{
-                        mm->info[i].end = end;
+                        mm->info[i].end = end; //fix the bug in previous zjunix
                         return 2;
                     }
 
-            } else {  // current info is the last segment
-                // extend the last segment to containing the new-in mm
+            } else {  // current info is the last one
                 mm->info[i].end = end;
                 return 6;
             }
         }
         else if (mm->info[i].start - 1 == end) {  // new info--info[i]
-            // new-in mm is connecting to the following one
-            kernel_printf("type of %d : %x, type: %x", i, mm->info[i].type, type);
+            // new-in mm is before the following one
             mm->info[i].start = start;
             return 4;
         }
+        else 
+            continue;
     }
 
-    if (mm->cnt_infos >= MAX_INFO)
+    if (mm->cnt_infos >= MAX_INFO){
         return 0;  // full that can't insert
+    }
     else{
         set_mminfo(mm->info + mm->cnt_infos, start, end, type);
         mm->cnt_infos++;
-        return 1;  // individual segment(non-connecting to any other)
+        return 1;  // does not connect to any other segment
     }
 }
 
 
-/* get one sequential memory area to be split into two parts
- * (set the former one.end = split_start-1)
- * (set the latter one.start = split_start)
+/* split one sequential memory area into two parts
+   (former.end = split_start-1)
+   (later.start = split_start)
  */
 uint split_mminfo(struct bootmm *mm, uint index, uint split_start) {
-    uint start, end;
+    uint start;
+    uint end;
     uint temp;
 
-    if(index >= mm->cnt_infos)
+    if(index >= mm->cnt_infos){
         return 0; //out of index
-
-    start = mm->info[index].start;
-    end = mm->info[index].end;
-    split_start &= PAGE_ALIGN;
-
-    if ((split_start <= start) || (split_start >= end) || mm->cnt_infos >= MAX_INFO){
-        return 0;    // split_start out of range
-                     // number of segments are reaching max, can't alloc anymore
     }
-   else{
-        // using copy and move, to get a mirror segment of mm->info[index]
-        for (temp = mm->cnt_infos - 1; temp >= index; --temp) {
-            mm->info[temp + 1] = mm->info[temp];
+    else{
+        start = mm->info[index].start;
+        end = mm->info[index].end;
+        split_start &= PAGE_ALIGN;    
+        if ((split_start <= start) || (split_start >= end) || mm->cnt_infos >= MAX_INFO){
+            return 0;    // split_start out of range or...
+                         // number of segments is ats max, can't alloc anymore
         }
-        mm->info[index].end = split_start - 1;
-        mm->info[index + 1].start = split_start;
-        mm->cnt_infos++;
-        return 1;
+        else{
+            // move all the info after index one step behind
+            for (temp = mm->cnt_infos - 1; temp >= index; temp--) {  
+                mm->info[temp + 1] = mm->info[temp];
+            }
+            mm->info[index].end = split_start - 1;
+            mm->info[index + 1].start = split_start;
+            mm->cnt_infos++;
+            return 1;
+        }    
     }
 }
 
 void remove_mminfo(struct bootmm *mm, uint index) {
     uint i;
-    if (index >= mm->cnt_infos)
+    if (index >= mm->cnt_infos){
         return;
-
-    if (index + 1 < mm->cnt_infos) {
-        for (i = index; i + 1 < mm->cnt_infos; i++) {
-            mm->info[i] = mm->info[i+1];
-        }
     }
-    mm->cnt_infos--;
+    else{
+        if (index + 1 < mm->cnt_infos) {
+            // move all the info after index one step forward
+            for (i = index; i + 1 < mm->cnt_infos; i++) {
+                mm->info[i] = mm->info[i+1];
+            }
+        }
+        mm->cnt_infos--;
+    }
+    
 }
 
 void init_bootmm() {
     uint index;
-    uchar *t_map;
     uint end;
-    end = 16 * 1024 * 1024;
-    kernel_memset(&bmm, 0, sizeof(bmm));
+    uchar *t_map;
+    
+    end = 16 * 1024 * 1024; //bootmm is set at size of 16MB 
+    kernel_memset(&bmm, 0, sizeof(bmm)); //clear
     bmm.phymm = get_phymm_size();
     bmm.max_pfn = bmm.phymm >> PAGE_SHIFT;
     bmm.s_map = bootmmmap;
     bmm.e_map = bootmmmap + sizeof(bootmmmap);
     bmm.cnt_infos = 0;
-    kernel_memset(bmm.s_map, PAGE_FREE, sizeof(bootmmmap));
-    insert_mminfo(&bmm, 0, (uint)(end - 1), _MM_KERNEL);
-    bmm.last_alloc_end = (((uint)(end) >> PAGE_SHIFT) - 1);
+    kernel_memset(bmm.s_map, PAGE_FREE, sizeof(bootmmmap));//clear
+    insert_mminfo(&bmm, 0, (uint)(end - 1), _MM_KERNEL);//insert 16MB space into bmm struct from the very beginning
+    bmm.last_alloc_end = ((((uint)(end) - 0) >> PAGE_SHIFT) - 1); //sub 0 means from beginning
 
-    for (index = 0; index < end>>PAGE_SHIFT; index++) {
-        bmm.s_map[index] = PAGE_USED;
+    for (index = 0; index < (end >> PAGE_SHIFT); index++) {
+        bmm.s_map[index] = PAGE_USED; //set these pages to be dirty
     }
 }
 
@@ -155,7 +163,7 @@ void init_bootmm() {
  * @param value : the value to be set
  */
 void set_maps(uint s_pfn, uint cnt, uchar value) {
-    while (cnt != 0) {
+    while (cnt > 0) {
         bmm.s_map[s_pfn] = (uchar)value;
         cnt--;
         s_pfn++;
@@ -172,11 +180,11 @@ void set_maps(uint s_pfn, uint cnt, uchar value) {
 
 
 uchar *find_pages(uint page_cnt, uint s_pfn, uint e_pfn, uint align_pfn) {//align_pfn = 1
-    uint index, temp;
+    uint index;
+    uint temp;
     uint count;
 
-    s_pfn = align_func(s_pfn,align_pfn);
-
+    s_pfn = align_func(s_pfn,align_pfn);  //align the begin page frame
 
     for (index = s_pfn; index < e_pfn; ) {
         if (bmm.s_map[index] == PAGE_USED) {
@@ -189,17 +197,18 @@ uchar *find_pages(uint page_cnt, uint s_pfn, uint e_pfn, uint align_pfn) {//alig
         while (count) {
             if (temp >= e_pfn)
                 return 0;
-            // reaching end, but allocate request still cannot be satisfied
-
-            if (bmm.s_map[temp] == PAGE_FREE) {
-                temp++;  // find next possible free page
-                count--;
-            }
-            if (bmm.s_map[temp] == PAGE_USED) {
-                break;
-            }
+            // at end, but still needs more pages
+            else{
+                if (bmm.s_map[temp] == PAGE_FREE) {
+                    temp++;  // find next free page
+                    count--;
+                }
+                else if (bmm.s_map[temp] == PAGE_USED) {
+                    break;
+                }
+            }  
         }
-        if (count == 0) {  // count = 0 indicates that the specified page-sequence found
+        if (count == 0) {  // count = 0 means found
             bmm.last_alloc_end = temp - 1;
             set_maps(index, page_cnt, PAGE_USED);
             return (uchar *)(index << PAGE_SHIFT);
