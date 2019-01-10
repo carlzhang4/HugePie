@@ -60,10 +60,10 @@ int Destroy_mailbox(mailbox_owner **head, int pid)
     {
         temp = first->next;
         first->next = temp->next;
-        kfree(temp);
+        // kfree(temp);
     }
-    kfree(first);
-    kfree(target);
+    // kfree(first);
+    // kfree(target);
 
     Type element;
     element.p = NULL;
@@ -141,7 +141,7 @@ int ReadMail(mailbox_owner *head, int pid, int *src, char message[MAIL_LENGTH])
         temp->next->previous = temp->previous;
     // log(LOG_STEP, "STEP2");
     temp->previous->next = temp->next;
-    kfree(temp);
+    // kfree(temp);
     ((mailbox*)target->key.p)->length--;
     // log(LOG_END, "END_READMAIL\n");
     return 0;

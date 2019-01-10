@@ -175,9 +175,9 @@ static Node* delete_node(AVLTree tree, Node *z)
         {
             Node *tmp = tree;
             tree = tree->left ? tree->left : tree->right;
-            if(tmp->key.p != NULL)
-                kfree(tmp->key.p);
-            kfree(tmp);
+            // if(tmp->key.p != NULL)
+            //     kfree(tmp->key.p);
+            // kfree(tmp);
         }
     }
 
@@ -238,5 +238,5 @@ void destroy_avltree(AVLTree tree)
     if (tree->right != NULL)
         destroy_avltree(tree->right);
  
-    kfree(tree);
+    // kfree(tree);
 }

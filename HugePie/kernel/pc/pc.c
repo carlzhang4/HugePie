@@ -294,7 +294,7 @@ int pc_clear_exit()
             //从exit_list中删除节点,要先删除节点再释放task空间
             list_delete(PROC_EXIT_LEVEL, exit_list->next);
             //清理进程空间
-            kfree(task);
+            // kfree(task);
         }
     }
 
@@ -679,7 +679,7 @@ int list_delete(int level, task_node *node)
         target_node->next->previous = target_node->previous;
     if(target_node->previous != NULL)
         target_node->previous->next = target_node->next;
-    kfree(target_node);
+    // kfree(target_node);
     
     return 0;
 }
