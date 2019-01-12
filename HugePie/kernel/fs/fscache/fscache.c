@@ -5,6 +5,7 @@
 
 extern struct fs_info fat_info;
 u8 MBR_buf[512];
+u32 current_fs; //0:fat32 1:ext2
 
 u32 init_MBR_info(){
     /* Init bufs */
@@ -15,6 +16,7 @@ u32 init_MBR_info(){
     if (read_block(MBR_buf, 0, 1) == 1) {
         return 1;
     }
+    current_fs = 0;
     log(LOG_OK, "Get MBR sector info");
     return 0;
 }

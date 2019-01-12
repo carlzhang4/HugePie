@@ -106,6 +106,10 @@ typedef struct ext_file{
     u8 path [512];
     //fp
     u32 loc;
+    u8 type;
+    //block and offset of father dir
+    u32 father_dir_block;
+    u32 father_dir_offset;
     //inode group and block and offset in inode_size
     u32 inode_group;
     u32 inode_block;
@@ -125,4 +129,9 @@ u32 ext_read(EFILE *file,u8 * buf, u32 count);
 u32 ext_open(EFILE *file, u8 * filename);
 u32 ext_find(EFILE* file);
 u32 ext_close(EFILE* file);
+u32 ext_rm(u8 *filename);
+unsigned long ext_ls(u8* path);
+u32 ext_mv(u8* parm);
+u32 ext_create_with_attr(u8 *filename, u8 type);
+
 #endif

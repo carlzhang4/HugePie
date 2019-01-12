@@ -16,6 +16,7 @@
 #include "exec.h"
 #include "myvi.h"
 
+extern u32 current_fs;
 char ps_buffer[64];
 int ps_buffer_index;
 
@@ -259,14 +260,23 @@ void parse_cmd() {
                 kernel_printf("Invalid parameters\n");
             return;
         }
-    else if (kernel_strcmp(ps_buffer, "cat") == 0) {
-        result = fs_cat(param);
+    else if (kernel_strcmp(ps_buffer, "E:") == 0) {
+        current_fs = 1;
+        kernel_printf("file system changed to ext2\n");
+    } else if (kernel_strcmp(ps_buffer, "F:") == 0) {
+        current_fs = 0;
+        kernel_printf("file system changed to fat32\n");
+    } else if (kernel_strcmp(ps_buffer, "cat") == 0) {
+        if(current_fs == 0)
+            result = fs_cat(param);
+        else
+            result = ext_cat(param);
         kernel_printf("cat return with %d\n", result);
-    } else if (kernel_strcmp(ps_buffer, "ecat") == 0) {
-        result = ext_cat(param);
-        kernel_printf("ecat return with %d\n", result);
-    }else if (kernel_strcmp(ps_buffer, "ls") == 0) {
-        result = ls(param);
+    } else if (kernel_strcmp(ps_buffer, "ls") == 0) {
+        if(current_fs == 0)
+            result = ls(param);
+        else
+            result = ext_ls(param); 
         kernel_printf("ls return with %d\n", result);
     } else if (kernel_strcmp(ps_buffer, "vi") == 0) {
         result = myvi(param);
@@ -275,10 +285,16 @@ void parse_cmd() {
         result = fs_mkdir(param);
         kernel_printf("mkdir return with %d\n", result);
     }  else if (kernel_strcmp(ps_buffer, "rm") == 0) {
-        result = fs_rm(param);
+        if(current_fs == 0)    
+            result = fs_rm(param);
+        else    
+            result = ext_rm(param);
         kernel_printf("rm return with %d\n", result);
     }  else if (kernel_strcmp(ps_buffer, "mv") == 0) {
-        result = mv(param);
+        if(current_fs == 0)
+            result = mv(param);
+        else   
+            result = ext_mv(param);
         kernel_printf("mv return with %d\n", result);
     }else if (kernel_strcmp(ps_buffer, "exec") == 0) {
         result = exec(param);

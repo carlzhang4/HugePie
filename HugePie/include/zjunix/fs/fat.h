@@ -35,16 +35,16 @@ union dir_entry {
 /* file struct */
 typedef struct fat_file {
     unsigned char path[256];
-    /* Current file pointer */
+    /* fp, current read/write location */
     unsigned long loc;
-    /* Current directory entry position */
+    /* Used to locate directory entry */
     unsigned long dir_entry_pos;
     unsigned long dir_entry_sector;
-    /* current directory entry */
+    /* data of directory entry */
     union dir_entry entry;
     /* Buffer clock head */
     unsigned long clock_head;
-    /* For normal FAT32, cluster size is 4k */
+    /* Buffer */
     BUF_4K data_buf[LOCAL_DATA_BUF_NUM];
 } FILE;
 

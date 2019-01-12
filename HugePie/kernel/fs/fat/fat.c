@@ -160,6 +160,8 @@ u32 fs_find(FILE* file)
                 {
                     if((*(dir_buf[index].buf+i + 11) == 0x08) || (*(dir_buf[index].buf+i + 11) == 0x0f))
                         continue;       //长文件名/卷标
+                    else if(*(dir_buf[index].buf+i) == 0xE5)
+                        continue;       //deleted
                     else{
                         file->dir_entry_pos = i;
                         file->dir_entry_sector = dir_buf[index].cur - fat_info.base_addr;
@@ -288,7 +290,7 @@ u32 fs_read(FILE * file,u8 * buf, u32 count)
     startCluster = file->loc >> fs_wa(bytesPerCluster);
     startByte = file->loc % bytesPerCluster;
     endCluster = (file->loc + count -1) >> fs_wa(bytesPerCluster);
-    endByte =  (file->loc + count - 1) % bytesPerCluster;
+    endByte =  (file->loc + count) % bytesPerCluster;
 /*
     kernel_printf("startCluster = %d,startByte = %d\n",startCluster,startByte);
     kernel_printf("endCluster = %d,endByte = %d\n\n",endCluster,endByte);
@@ -403,12 +405,16 @@ u32 fs_close(FILE *file) {
 u32 fs_next_free(u32 start, u32 *next_free) {
     u32 clus;
     u32 ClusEntryVal;
-
+    //log(LOG_START,"fs_next_free");
     *next_free = 0xFFFFFFFF;
 
     for (clus = start; clus <= fat_info.total_data_clusters + 1; clus++) {
-        if (get_fat_entry_value(clus, &ClusEntryVal) == 1)
+        if (get_fat_entry_value(clus, &ClusEntryVal) == 1){
+           // kernel_printf("get_fat_entry_value failed\n");
             return 1;
+        }
+       // kernel_printf("clus = %d,value = %d\n",clus,ClusEntryVal);
+       // kernel_getchar();
         //found a empty cluster
         if (ClusEntryVal == 0) {
             *next_free = clus;
@@ -416,6 +422,7 @@ u32 fs_next_free(u32 start, u32 *next_free) {
         }
     }
 
+    //log(LOG_END,"fs_next_free");
     return 0;
 }
 
@@ -425,8 +432,10 @@ u32 fs_alloc(u32 *new_alloc) {
     u32 i;
     u32 index;
     u32 nextFreeClust,clust;
+
     clust = get_u32(fat_info.fat_fs_info + 492) + 1;
-    
+    //kernel_printf("alloc new:fat_info.fat_fs_info + 492) + 1 = %d\n",clust);
+    //kernel_printf("get_u32(fat_info.fat_fs_info + 488) + 1 = %d\n",get_u32(fat_info.fat_fs_info + 488) + 1);  
     //FSI_next_free > FSI_free_count
     if (clust > get_u32(fat_info.fat_fs_info + 488) + 1) {
         if (fs_next_free(2, &clust) == 1)
@@ -442,8 +451,9 @@ u32 fs_alloc(u32 *new_alloc) {
 
     if (fs_next_free(clust, &nextFreeClust) == 1)
         return 1;
-
+    //kernel_printf("after next_free: nextClust = %d\n",nextFreeClust);
     /* no available free cluster */
+    //kernel_printf("total_data_cluster+1 = %d\n",fat_info.total_data_clusters+1);
     if (nextFreeClust > fat_info.total_data_clusters + 1)
         return 1;
 
@@ -452,8 +462,10 @@ u32 fs_alloc(u32 *new_alloc) {
     *new_alloc = clust;
 
     /* Erase new allocated cluster */
-    if (write_block(new_alloc_empty, fs_dataclus2sec(clust), fat_info.BPB.attr.sectors_per_cluster) == 1)
+    if (write_block(new_alloc_empty, fs_dataclus2sec(clust), fat_info.BPB.attr.sectors_per_cluster) == 1){
+        log(LOG_FAIL,"write_block failed");
         return 1;
+    }
 
     return 0;
     
@@ -468,7 +480,7 @@ u32 fs_write(FILE *file, const u8 *buf, u32 count) {
     u32 index;
     u32 currentClus = get_start_cluster(file);
     u32 nextClust;
-    u32 i,j,sp;
+    u32 i,j,sp=0;
     u32 startByteofClust;
 
     if(count == 0) 
@@ -477,30 +489,44 @@ u32 fs_write(FILE *file, const u8 *buf, u32 count) {
     startByte = file->loc % bytesPerCluster;
     endCluster = (file->loc + count -1) >> fs_wa(bytesPerCluster);
     endByte =  (file->loc + count) % bytesPerCluster;
+
+    //kernel_printf("from %d, %d to %d,%d \n",startCluster,startByte,endCluster,endByte);
+    
     u32 newEmptyClust;
      
     //if the file is empty and haven't alloc a cluster, alloc an empty cluster
     if((get_entry_filesize(file->entry.data) == 0)&& get_start_cluster(file) == 0)
     {
-        if( fs_alloc(&newEmptyClust) == 1)
+        if( fs_alloc(&newEmptyClust) == 1){
+            log(LOG_FAIL,"fs_alloc");
             return 0xffffffff;
+            }
+        //kernel_printf("write: newClust = %d\n",newEmptyClust);
         file->entry.attr.starthi = (u16)(((newEmptyClust >> 16) & 0xFFFF));
         file->entry.attr.startlow = (u16)((newEmptyClust & 0xFFFF));
-        if (fs_clr_4k(file->data_buf, &(file->clock_head), LOCAL_DATA_BUF_NUM, fs_dataclus2sec(newEmptyClust)) == 1)
+        if (fs_clr_4k(file->data_buf, &(file->clock_head), LOCAL_DATA_BUF_NUM, fs_dataclus2sec(newEmptyClust)) == 1){
+            log(LOG_FAIL,"clr_4k");
             return 0xffffffff;
+            }
     }
     //come the startCluster
     currentClus = get_start_cluster(file);
     for(i=0;i<startCluster;i++){
-        if(get_fat_entry_value(currentClus,&nextClust) == 1)
+        //kernel_printf("currentClus = %d\n",currentClus);
+        if(get_fat_entry_value(currentClus,&nextClust) == 1){
+            log(LOG_FAIL,"get_fat_entry_value");
             return 0xffffffff;
+        }
+        //kernel_printf(" value = %d\n",nextClust);
         if(nextClust == 0)
             return 0xffffffff;
-        //need to alloc a new cluster after this cluster    
+        //need to alloc a new cluster after this cluster   
+        //kernel_printf("nextCluster = %d,total_cluster = %d\n",nextClust,fat_info.total_data_clusters); 
         if(nextClust > fat_info.total_data_clusters)
         {
             if(fs_alloc(&newEmptyClust)==1)
                 return 0xffffffff;
+            //kernel_printf("newEmptyCluster = %d\n",newEmptyClust);
             if(fs_modify_fat(currentClus,newEmptyClust)==1)
                 return 0xffffffff;
             if(fs_clr_4k(file->data_buf, &(file->clock_head), LOCAL_DATA_BUF_NUM, fs_dataclus2sec(newEmptyClust)) == 1)
@@ -512,14 +538,19 @@ u32 fs_write(FILE *file, const u8 *buf, u32 count) {
     }
     u32 endbyte;
     //write the first cluster
-    if(index = fs_read_4k(file->data_buf,fs_dataclus2sec(currentClus),&(file->clock_head),LOCAL_DATA_BUF_NUM)==1)
+    index = fs_read_4k(file->data_buf,fs_dataclus2sec(currentClus),&(file->clock_head),LOCAL_DATA_BUF_NUM);
+    if(index == 0xffffffff){
+        log(LOG_FAIL,"read_4k");
         return 0xffffffff;
+    }
     // state used for clock is 2'b11
     file->data_buf[index].state = 3;    
     endbyte = (startCluster == endCluster)?endByte:bytesPerCluster;
+
     for(j=startByte;j<endbyte;j++){
         file->data_buf[index].buf[j] = buf[sp++];
     }
+
     //if there is only one cluster, write and return. else continue to write other clusters
     if(startCluster==endCluster)
         return sp;
@@ -540,12 +571,15 @@ u32 fs_write(FILE *file, const u8 *buf, u32 count) {
     }
     i = currentClus;
     //write inner clusters
-    for(;i<endCluster;i++){   
-        if(index = fs_read_4k(file->data_buf,fs_dataclus2sec(currentClus),&(file->clock_head),LOCAL_DATA_BUF_NUM)==1)
+    for(;i<endCluster;i++){  
+        index == fs_read_4k(file->data_buf,fs_dataclus2sec(currentClus),&(file->clock_head),LOCAL_DATA_BUF_NUM);
+        if(index=0xffffffff)
             return 0xffffffff;
         file->data_buf[index].state = 3;
-        for(j = 0;j< bytesPerCluster;j++)
+        for(j = 0;j< bytesPerCluster;j++){
             file->data_buf[index].buf[j] = buf[sp++];
+            //kernel_printf("%c ",file->data_buf[index].buf[j]);
+        }
         if(get_fat_entry_value(currentClus,&nextClust) == 1)
             return 0xffffffff;
             //alloc a new empty cluster
@@ -561,12 +595,15 @@ u32 fs_write(FILE *file, const u8 *buf, u32 count) {
         currentClus = nextClust;
     }
     //write the endCluster;
-    if(index = fs_read_4k(file->data_buf,fs_dataclus2sec(currentClus),&(file->clock_head),LOCAL_DATA_BUF_NUM) == 1)
-        return 0xffffffff;
+    index == fs_read_4k(file->data_buf,fs_dataclus2sec(currentClus),&(file->clock_head),LOCAL_DATA_BUF_NUM);
+        if(index=0xffffffff)
+            return 0xffffffff;
     file->data_buf[index].state = 3;
-    for(i = 0;i<endByte;i++)
-        file->data_buf[index].buf[j] = buf[sp++];
-
+    for(i = 0;i<endByte;i++){
+        file->data_buf[index].buf[i] = buf[sp++];
+        //kernel_printf("%c ",file->data_buf[index].buf[i]);
+    }
+    file->loc += sp;
     return sp;    
 
 }
@@ -594,44 +631,41 @@ u32 fs_find_empty_entry(u32 *empty_entry, u32 index) {
                 /* If entry is empty */
                 if ((*(dir_buf[index].buf + i) == 0) || (*(dir_buf[index].buf + i) == 0xE5)) {
                     *empty_entry = i;
-                    goto after_fs_find_empty_entry;
+                    return index;
                 }
             }
 
             if (sec < fat_info.BPB.attr.sectors_per_cluster) {
                 index = fs_read_512(dir_buf, dir_buf[index].cur + sec, &dir_clock_head, DIR_DATA_BUF_NUM);
                 if (index == 0xffffffff)
-                    goto fs_find_empty_entry_err;
+                    return 0xffffffff;
             } else {
                 /* Read next cluster of current directory */
                 if (get_fat_entry_value(dir_buf[index].cur - fat_info.BPB.attr.sectors_per_cluster + 1, &next_clus) == 1)
-                    goto fs_find_empty_entry_err;
+                    return 0xffffffff;
 
                 /* need to alloc a new cluster */
                 if (next_clus > fat_info.total_data_clusters + 1) {
                     if (fs_alloc(&next_clus) == 1)
-                        goto fs_find_empty_entry_err;
+                        return 0xffffffff;
 
                     if (fs_modify_fat(fs_sec2dataclus(dir_buf[index].cur - fat_info.BPB.attr.sectors_per_cluster + 1), next_clus) == 1)
-                        goto fs_find_empty_entry_err;
+                        return 0xffffffff;
 
                     *empty_entry = 0;
 
                     if (fs_clr_512(dir_buf, &dir_clock_head, DIR_DATA_BUF_NUM, fs_dataclus2sec(next_clus)) == 1)
-                        goto fs_find_empty_entry_err;
+                        return 0xffffffff;
                 }
 
                 index = fs_read_512(dir_buf, fs_dataclus2sec(next_clus), &dir_clock_head, DIR_DATA_BUF_NUM);
                 if (index == 0xffffffff)
-                    goto fs_find_empty_entry_err;
+                    return 0xffffffff;
             }
         }
     }
 
-after_fs_find_empty_entry:
     return index;
-fs_find_empty_entry_err:
-    return 0xffffffff;
 }
 
 /* create an empty file with attr */
@@ -645,7 +679,7 @@ u32 fs_create_with_attr(u8 *filename, u8 attr) {
     FILE file_creat;
     /* If file exists */
     if (fs_open(&file_creat, filename) == 0)
-        goto fs_creat_err;
+        return 1;
 
     for (i = 255; i >= 0; i--)
         if (file_creat.path[i] != 0) {
@@ -665,17 +699,17 @@ u32 fs_create_with_attr(u8 *filename, u8 attr) {
             file_creat.path[i] = 0;
 
         if (fs_find(&file_creat) == 1)
-            goto fs_creat_err;
+            return 1;
 
         /* If path not found */
         if (file_creat.dir_entry_pos == 0xFFFFFFFF)
-            goto fs_creat_err;
+            return 1;
 
         clus = get_start_cluster(&file_creat);
         /* Open that directory */
         index = fs_read_512(dir_buf, fs_dataclus2sec(clus), &dir_clock_head, DIR_DATA_BUF_NUM);
         if (index == 0xffffffff)
-            goto fs_creat_err;
+            return 1;
 
         file_creat.dir_entry_pos = clus;
     }
@@ -683,7 +717,7 @@ u32 fs_create_with_attr(u8 *filename, u8 attr) {
     else {
         index = fs_read_512(dir_buf, fs_dataclus2sec(2), &dir_clock_head, DIR_DATA_BUF_NUM);
         if (index == 0xffffffff)
-            goto fs_creat_err;
+            return 1;
 
         file_creat.dir_entry_pos = 2;
     }
@@ -691,7 +725,7 @@ u32 fs_create_with_attr(u8 *filename, u8 attr) {
     /* find an empty entry */
     index = fs_find_empty_entry(&empty_entry, index);
     if (index == 0xffffffff)
-        goto fs_creat_err;
+        return 1;
 
     for (i = l1 + 1; i <= l2; i++)
         file_creat.path[i - l1 - 1] = filename[i];
@@ -713,11 +747,9 @@ u32 fs_create_with_attr(u8 *filename, u8 attr) {
         *(dir_buf[index].buf + empty_entry + i) = 0;
 
     if (fs_fflush() == 1)
-        goto fs_creat_err;
+        return 1;
 
     return 0;
-fs_creat_err:
-    return 1;
 }
 
 u32 fs_create(u8 *filename) {
